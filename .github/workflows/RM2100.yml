@@ -1,4 +1,4 @@
-name: Build-rm2100
+name: Build-NETGEAR-BZV
 
 on:
   workflow_dispatch:
@@ -18,7 +18,7 @@ jobs:
     if: github.event.repository.owner.id == github.event.sender.id
     strategy:
       matrix:
-        device: [RM2100]
+        device: [NETGEAR-BZV]
     permissions: 
       contents: write
 
