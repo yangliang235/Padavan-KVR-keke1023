@@ -1,4 +1,4 @@
-name: Build-NETGEAR-BZV
+name: NETGEAR-BZV
 
 on:
   workflow_dispatch:
