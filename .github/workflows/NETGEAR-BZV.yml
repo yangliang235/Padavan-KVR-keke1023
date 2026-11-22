@@ -182,6 +182,8 @@ jobs:
         echo "CONFIG_FIRMWARE_INCLUDE_IPV6=y" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_HTTPS=y" >> .config
 
+        echo "CONFIG_FIRMWARE_WEBUI_HIDE_VPN=y" >> .config
+
         echo "=== Final .config (relevant lines) ==="
         grep -E "CPU_900|MT7621_OC|RT_DOT11|SMARTDNS|LANG_CN|USB|OPENSSH|HTTPS" .config || true
 
