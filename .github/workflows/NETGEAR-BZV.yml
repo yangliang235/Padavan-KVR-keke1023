@@ -178,6 +178,9 @@ jobs:
         echo "CONFIG_FIRMWARE_INCLUDE_OPENSSH=y" >> .config
 
         echo "CONFIG_FIRMWARE_INCLUDE_SHORTCUT_FE=y" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_FASTPATH_HWNAT=y" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_IPV6=y" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_HTTPS=y" >> .config
 
         echo "=== Final .config (relevant lines) ==="
         grep -E "CPU_900|MT7621_OC|RT_DOT11|SMARTDNS|LANG_CN|USB|OPENSSH|HTTPS" .config || true
