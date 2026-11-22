@@ -65,7 +65,7 @@ jobs:
         cd /opt/rt-n56u/trunk
 
         ################################################################################################
-        # 超频 1000MHz：兼容多种 PLL 值写法 (0xc2 / 0x2B2 / 0x2C2 -> 0x312)
+        # 超频 1000MHz：兼容多种 PLL 值写法 (0xc2 / 0x2B2 / 0x2C2 -> 0x362)
         ################################################################################################
         INIT_C="linux-3.4.x/arch/mips/rt2880/init.c"
         if [ -f "$INIT_C" ]; then
@@ -73,21 +73,21 @@ jobs:
           sed -n '545,565p' "$INIT_C" || true
 
           # 兼容 fightroad 的 0xc2
-          sed -i 's/!= 0xc2)/!= 0x312)/g' "$INIT_C"
-          sed -i 's/(0xc2);/(0x312);/g' "$INIT_C"
-          sed -i 's/0xC2/0x312/g' "$INIT_C"
+          sed -i 's/!= 0xc2)/!= 0x362)/g' "$INIT_C"
+          sed -i 's/(0xc2);/(0x362);/g' "$INIT_C"
+          sed -i 's/0xC2/0x362/g' "$INIT_C"
           # 兼容原版 0x2B2 (880MHz)
-          sed -i 's/0x2B2/0x312/g' "$INIT_C"
-          sed -i 's/0x2b2/0x312/g' "$INIT_C"
+          sed -i 's/0x2B2/0x362/g' "$INIT_C"
+          sed -i 's/0x2b2/0x362/g' "$INIT_C"
           # 兼容 0x2C2 (900MHz)
-          sed -i 's/0x2C2/0x312/g' "$INIT_C"
-          sed -i 's/0x2c2/0x312/g' "$INIT_C"
+          sed -i 's/0x2C2/0x362/g' "$INIT_C"
+          sed -i 's/0x2c2/0x362/g' "$INIT_C"
 
           echo "=== Lines 545-565 of $INIT_C (after) ==="
           sed -n '545,565p' "$INIT_C" || true
 
-          echo "=== grep 0x312 in $INIT_C ==="
-          grep -n "0x312" "$INIT_C" || echo "(WARNING: 0x312 not found, OC will fall back to .config only)"
+          echo "=== grep 0x362 in $INIT_C ==="
+          grep -n "0x362" "$INIT_C" || echo "(WARNING: 0x362 not found, OC will fall back to .config only)"
         else
           echo "ERROR: $INIT_C not found."
           exit 1
@@ -99,7 +99,7 @@ jobs:
         sed -i '/CONFIG_FIRMWARE_CPU_900MHZ/d' .config
         sed -i '/CONFIG_FIRMWARE_MT7621_OC/d' .config
         echo "CONFIG_FIRMWARE_CPU_900MHZ=y" >> .config
-        echo 'CONFIG_FIRMWARE_MT7621_OC="0x312"' >> .config
+        echo 'CONFIG_FIRMWARE_MT7621_OC="0x362"' >> .config
 
         ################################################################################################
         # e2fsprogs 兼容性修复（先打补丁，再 export 环境变量）
@@ -133,6 +133,23 @@ jobs:
                    FRPC FRPS TUNSAFE; do
           sed -i "/CONFIG_FIRMWARE_INCLUDE_${opt}=/d" .config
           sed -i "/CONFIG_FIRMWARE_ENABLE_${opt}=/d" .config
+          # 1. 禁用所有代理与 VPN 客户端/服务端 (No VPN / Shadowsocks / V2ray / Xray / WireGuard / OpenVPN)
+          sed -i 's/CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS=y/CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS=n/g' .config
+          sed -i 's/CONFIG_FIRMWARE_INCLUDE_XRAY=y/CONFIG_FIRMWARE_INCLUDE_XRAY=n/g' .config
+          sed -i 's/CONFIG_FIRMWARE_INCLUDE_V2RAY=y/CONFIG_FIRMWARE_INCLUDE_V2RAY=n/g' .config
+          sed -i 's/CONFIG_FIRMWARE_INCLUDE_TROJAN=y/CONFIG_FIRMWARE_INCLUDE_TROJAN=n/g' .config
+          sed -i 's/CONFIG_FIRMWARE_INCLUDE_SSOBFS=y/CONFIG_FIRMWARE_INCLUDE_SSOBFS=n/g' .config
+          sed -i 's/CONFIG_FIRMWARE_INCLUDE_PACKAGE_SS_RELY=y/CONFIG_FIRMWARE_INCLUDE_PACKAGE_SS_RELY=n/g' .config
+          sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENVPN=y/CONFIG_FIRMWARE_INCLUDE_OPENVPN=n/g' .config
+          sed -i 's/CONFIG_FIRMWARE_INCLUDE_WIREGUARD=y/CONFIG_FIRMWARE_INCLUDE_WIREGUARD=n/g' .config
+          sed -i 's/CONFIG_FIRMWARE_INCLUDE_SSSERVER=y/CONFIG_FIRMWARE_INCLUDE_SSSERVER=n/g' .config
+          sed -i 's/CONFIG_FIRMWARE_INCLUDE_SRELAY=y/CONFIG_FIRMWARE_INCLUDE_SRELAY=n/g' .config
+          sed -i 's/CONFIG_FIRMWARE_INCLUDE_CLASH=y/CONFIG_FIRMWARE_INCLUDE_CLASH=n/g' .config
+          # 4. 保留并确保纯净核心网络功能与硬件加速开启 (HWNAT, SFE, IPv6, HTTPS)
+          sed -i 's/CONFIG_FIRMWARE_INCLUDE_SHORTCUT_FE=n/CONFIG_FIRMWARE_INCLUDE_SHORTCUT_FE=y/g' .config
+          sed -i 's/CONFIG_FIRMWARE_INCLUDE_FASTPATH_HWNAT=n/CONFIG_FIRMWARE_INCLUDE_FASTPATH_HWNAT=y/g' .config
+          sed -i 's/CONFIG_FIRMWARE_INCLUDE_IPV6=n/CONFIG_FIRMWARE_INCLUDE_IPV6=y/g' .config
+          sed -i 's/CONFIG_FIRMWARE_INCLUDE_HTTPS=n/CONFIG_FIRMWARE_INCLUDE_HTTPS=y/g' .config
         done
 
         ################################################################################################
@@ -153,6 +170,8 @@ jobs:
         echo "CONFIG_FIRMWARE_ENABLE_EXT4=y" >> .config
 
         echo "CONFIG_FIRMWARE_INCLUDE_USBIP=y" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_LPRD=y" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_U2EC=y" >> .config
 
         echo "CONFIG_FIRMWARE_INCLUDE_HTTPS=y" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_OPENSSL_EC=y" >> .config
