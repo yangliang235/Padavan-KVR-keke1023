@@ -1,104 +1,173 @@
-#修改TNAME: K2P 中的K2P为你需要编译的型号，注意名称要与configs/templates/目录下的名字相同
-name: NETGEAR-BZV
+name: Build MT7621 NETGEAR-BZV (keke1023)
 
 on: 
-  release:
-    types: [published]
-  push:
-    tags:
-    - 'v*'
-  #  branches: 
-  #    - master
-#  schedule:
-#    - cron: 0 8 * * 5
-  watch:
-    types: [started]
+  repository_dispatch:
+  workflow_dispatch:
+
+env:
+  TNAME: "NETGEAR-BZV"
 
 jobs:
   build:
-    runs-on: ubuntu-18.04
-    if: github.event.repository.owner.id == github.event.sender.id
+    runs-on: ubuntu-22.04
 
     steps:
     - name: Checkout
-      uses: actions/checkout@master
+      uses: actions/checkout@main
+
     - name: Initialization environment
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
         sudo apt-get update
-        sudo apt-get -y install unzip libtool-bin curl cmake gperf gawk flex bison nano xxd fakeroot \
-        cpio git python-docutils gettext automake autopoint texinfo build-essential help2man \
-        pkg-config zlib1g-dev libgmp3-dev libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget
+        sudo apt-get install unzip libtool-bin curl cmake gperf gawk flex bison nano xxd \
+        fakeroot kmod cpio git python3-docutils gettext automake autopoint \
+        texinfo build-essential help2man pkg-config zlib1g-dev libgmp3-dev \
+        libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget libc-dev-bin
+
+        sudo mkdir -p /mnt/opt
+        sudo chown $USER:$USER /mnt/opt
+
     - name: Clone source code
       run: |
-        git clone --depth=1 https://github.com/MeIsReallyBa/padavan-4.4.git /opt/rt-n56u
+        mkdir -p /mnt/opt/rt-n56u
+        sudo rm -rf /opt/rt-n56u
+        ln -s /mnt/opt/rt-n56u /opt/rt-n56u
+
+        git clone --depth=1 --single-branch https://github.com/keke1023/Padavan.git /opt/rt-n56u
+        sed -i 's/192.168.2/192.168.6/g' /opt/rt-n56u/trunk/user/shared/defaults.h
+        sed -i 's/ntp1.aliyun.com/time.pool.aliyun.com/g' /opt/rt-n56u/trunk/user/shared/defaults.h
+
         cd /opt/rt-n56u/toolchain-mipsel
         sh dl_toolchain.sh
         mkdir -p /opt/images/
+
     - name: Build Firmware
-      env:
-        TNAME: NETGEAR-BZV
       run: |
-        cd /opt/rt-n56u/trunk
-        if [ ! -f configs/templates/$TNAME.config ] ; then
-        echo "configs/templates/$TNAME.config not found "
-        exit 1
+        echo "FILE_DATE=-$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+
+        ################################################################################################
+        # 加载配置文件
+        ################################################################################################
+        CONFIG_SRC=""
+        if [ -f "$GITHUB_WORKSPACE/$TNAME/$TNAME.config" ]; then
+          CONFIG_SRC="$GITHUB_WORKSPACE/$TNAME/$TNAME.config"
+        elif [ -f "/opt/rt-n56u/trunk/configs/templates/$TNAME.config" ]; then
+          CONFIG_SRC="/opt/rt-n56u/trunk/configs/templates/$TNAME.config"
         fi
-        cp -f configs/templates/$TNAME.config .config
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
+        if [ -z "$CONFIG_SRC" ]; then
+          echo "ERROR: No config found for $TNAME."
+          exit 1
+        fi
+        echo "Using config: $CONFIG_SRC"
+        cp -vpf "$CONFIG_SRC" /opt/rt-n56u/trunk/.config
+
+        cd /opt/rt-n56u/trunk
+
         ################################################################################################
-        #因不同型号配置功能不一样，所以先把配置项删除，如果你自己要添加其他的，也要写上删除这一条，切记！！！
+        # 超频 1000MHz：兼容多种 PLL 值写法 (0xc2 / 0x2B2 / 0x2C2 -> 0x312)
         ################################################################################################
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_DNSFORWARDER=y/CONFIG_FIRMWARE_INCLUDE_DNSFORWARDER=n/g' .config
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_MENTOHUST=y/CONFIG_FIRMWARE_INCLUDE_MENTOHUST=n/g' .config
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_SCUTCLIENT=y/CONFIG_FIRMWARE_INCLUDE_SCUTCLIENT=n/g' .config
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_SRELAY=y/CONFIG_FIRMWARE_INCLUDE_SRELAY=n/g' .config
-        sed -i 's/CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS=y/CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS=n/g' .config
-        ######################################################################
-        #以下选项是定义你需要的功能（y=集成,n=忽略），重新写入到.config文件
-        ######################################################################
-        ##科学上网##
-        echo "CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS=n" >> .config #科学上网插件，选择n后全部有关插件都不集成
-        echo "CONFIG_FIRMWARE_INCLUDE_XRAY=n" >> .config #集成xray执行文件 ~4.5M
-        echo "CONFIG_FIRMWARE_INCLUDE_V2RAY=n" >> .config #集成v2ray执行文件
-        echo "CONFIG_FIRMWARE_INCLUDE_TROJAN=n" >> .config #集成trojan执行文件 ~1.2M
-        echo "CONFIG_FIRMWARE_INCLUDE_SSOBFS=n" >> .config #simple-obfs混淆插件
-        ##科学上网##
+        INIT_C="linux-3.4.x/arch/mips/rt2880/init.c"
+        if [ -f "$INIT_C" ]; then
+          echo "=== Lines 545-565 of $INIT_C (before) ==="
+          sed -n '545,565p' "$INIT_C" || true
 
-        ##广告管理##
-        echo "CONFIG_FIRMWARE_INCLUDE_ADBYBY=n" >> .config #adbyby plus+
-        ##DNS服务##
-        echo "CONFIG_FIRMWARE_INCLUDE_SMARTDNS=n" >> .config #smartdns
-        echo "CONFIG_FIRMWARE_INCLUDE_ADGUARDHOME=n" >> .config #adg DNS去AD
+          # 兼容 fightroad 的 0xc2
+          sed -i 's/!= 0xc2)/!= 0x312)/g' "$INIT_C"
+          sed -i 's/(0xc2);/(0x312);/g' "$INIT_C"
+          sed -i 's/0xC2/0x312/g' "$INIT_C"
+          # 兼容原版 0x2B2 (880MHz)
+          sed -i 's/0x2B2/0x312/g' "$INIT_C"
+          sed -i 's/0x2b2/0x312/g' "$INIT_C"
+          # 兼容 0x2C2 (900MHz)
+          sed -i 's/0x2C2/0x312/g' "$INIT_C"
+          sed -i 's/0x2c2/0x312/g' "$INIT_C"
 
+          echo "=== Lines 545-565 of $INIT_C (after) ==="
+          sed -n '545,565p' "$INIT_C" || true
 
-        ##内网穿透服务##
-        echo "CONFIG_FIRMWARE_INCLUDE_ZEROTIER=n" >> .config #zerotier ~1.3M
-        echo "CONFIG_FIRMWARE_INCLUDE_ALIDDNS=n" >> .config #aliddns
-        echo "CONFIG_FIRMWARE_INCLUDE_DDNSTO=n" >> .config #ddnsto ~0.5M
-        echo "CONFIG_FIRMWARE_INCLUDE_WIREGUARD=n" >> .config #wireguard ~10k
-        ##内网穿透服务##
-        echo "CONFIG_FIRMWARE_INCLUDE_ALDRIVER=n" >> .config  #ALDRIVER  ~3m
-        echo "CONFIG_FIRMWARE_INCLUDE_MENTOHUST=n" >> .config #mentohust
-        
-        ##流控QOS##
-        echo "CONFIG_FIRMWARE_INCLUDE_SQM=y" >> .config #SQM QOS#CPU超频
-        echo "CONFIG_FIRMWARE_INCLUDE_OC=n" >> .config #CPU超频开关
-        echo 'CONFIG_FIRMWARE_MT7621_OC="0x362"' >> .config #此处填写对应频率的十六进制：1000Mhz=0x312 1100Mhz=0x362 1120Mhz=0x372 1200Mhz=0x3B2
+          echo "=== grep 0x312 in $INIT_C ==="
+          grep -n "0x312" "$INIT_C" || echo "(WARNING: 0x312 not found, OC will fall back to .config only)"
+        else
+          echo "ERROR: $INIT_C not found."
+          exit 1
+        fi
 
-        #########################################################################################
-        #自定义添加其它功能请参考源码configs/templates/目录下的config文件。按照上面的格式添加即可
-        #格式如下：
-        #sed -i '/自定义项/d' .config
-        #echo "自定义项=y" >> .config
-        #########################################################################################
-        sudo ./clear_tree
-        sudo ./build_firmware_modify $TNAME 0
-        sudo mv -f images/*.trx /opt/images/
-    - name : Upload packages
-      uses: actions/upload-artifact@master
-      if: always()
+        ################################################################################################
+        # 修复 .config 超频开关
+        ################################################################################################
+        sed -i '/CONFIG_FIRMWARE_CPU_900MHZ/d' .config
+        sed -i '/CONFIG_FIRMWARE_MT7621_OC/d' .config
+        echo "CONFIG_FIRMWARE_CPU_900MHZ=y" >> .config
+        echo 'CONFIG_FIRMWARE_MT7621_OC="0x312"' >> .config
+
+        ################################################################################################
+        # e2fsprogs 兼容性修复（先打补丁，再 export 环境变量）
+        ################################################################################################
+        E2FS_DIR="user/e2fsprogs/e2fsprogs-1.46.5"
+        if [ -f "$E2FS_DIR/MCONFIG" ]; then
+          echo "=== Patching $E2FS_DIR/MCONFIG ==="
+          sed -i 's|^CC=.*|CC = /opt/rt-n56u/toolchain-mipsel/toolchain-3.4.x/bin/mipsel-linux-uclibc-gcc|' "$E2FS_DIR/MCONFIG"
+          sed -i 's|^PTHREAD_CFLAGS=.*|PTHREAD_CFLAGS = -pthread|' "$E2FS_DIR/MCONFIG" || true
+          grep -E "^CC=|^PTHREAD_CFLAGS=" "$E2FS_DIR/MCONFIG" || true
+        fi
+        export PTHREAD_CFLAGS="-pthread"
+
+        ################################################################################################
+        # 清理所有可选插件（"其它全部不要"）
+        ################################################################################################
+        for opt in SHADOWSOCKS V2RAY TROJAN SSOBFS XRAY SRELAY \
+                   ADBYBY KOOLPROXY ADGUARDHOME DNSFORWARDER \
+                   ZEROTIER ALIDDNS DDNSTO \
+                   MENTOHUST SCUTCLIENT GDUT_DRCOM DOGCOM MINIEAP NJIT_CLIENT \
+                   TRANSMISSION TRANSMISSION_WEB_CONTROL ARIA ARIA_WEB_CONTROL \
+                   MINIDLNA XUPNPD FIREFLY CADDY CADDYBIN WYY WYYBIN \
+                   OPENVPN SSWAN SOFTETHERVPN_SERVER SOFTETHERVPN_CLIENT SOFTETHERVPN_CMD \
+                   VLMCSD TTYD LRZSZ HTOP NANO IPERF3 MTR SOCAT \
+                   SMBD SMBD36 WINS SMBD_SYSLOG FTPD LPRD U2EC \
+                   EAP_PEAP SFTP TCPDUMP HDPARM PARTED CURL \
+                   XFRM QOS IMQ IFB IPSET SFE \
+                   NFSD NFSC CIFS NAPT66 \
+                   XFS FUSE SWAP HID AUDIO UVC SERIAL \
+                   DROPBEAR DROPBEAR_FAST_CODE RPL2TP DUMP1090 RTL_SDR \
+                   FRPC FRPS TUNSAFE; do
+          sed -i "/CONFIG_FIRMWARE_INCLUDE_${opt}=/d" .config
+          sed -i "/CONFIG_FIRMWARE_ENABLE_${opt}=/d" .config
+        done
+
+        ################################################################################################
+        # 显式开启需要保留的功能
+        ################################################################################################
+        echo "CONFIG_RT_DOT11K_RRM=y" >> .config
+        echo "CONFIG_RT_DOT11R_FT=y" >> .config
+        echo "CONFIG_RT_DOT11V_WNM=y" >> .config
+
+        echo "CONFIG_FIRMWARE_INCLUDE_SMARTDNS=y" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_SMARTDNSBIN=y" >> .config
+
+        echo "CONFIG_FIRMWARE_INCLUDE_LANG_CN=y" >> .config
+
+        echo "CONFIG_FIRMWARE_ENABLE_USB=y" >> .config
+        echo "CONFIG_FIRMWARE_ENABLE_UFSD=y" >> .config
+        echo "CONFIG_FIRMWARE_ENABLE_FAT=y" >> .config
+        echo "CONFIG_FIRMWARE_ENABLE_EXT4=y" >> .config
+
+        echo "CONFIG_FIRMWARE_INCLUDE_USBIP=y" >> .config
+
+        echo "CONFIG_FIRMWARE_INCLUDE_HTTPS=y" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_OPENSSL_EC=y" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_OPENSSH=y" >> .config
+
+        echo "=== Final .config (relevant lines) ==="
+        grep -E "CPU_900|MT7621_OC|RT_DOT11|SMARTDNS|LANG_CN|USB|OPENSSH|HTTPS" .config || true
+
+        ./clear_tree_simple
+        fakeroot ./build_firmware_modify $TNAME 0
+        mv -f images/*.trx /opt/images
+        cp -vpf .config /opt/images
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@main
       with:
-        name: Padavan-packages
+        name: Padavan-MT7621-${{ env.TNAME }}-C${{ env.FILE_DATE }}
         path: /opt/images
