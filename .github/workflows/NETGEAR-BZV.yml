@@ -1,6 +1,6 @@
 name: Build MT7621 NETGEAR-BZV (keke1023)
 
-on: 
+on:
   repository_dispatch:
   workflow_dispatch:
 
@@ -9,7 +9,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
 
     steps:
     - name: Checkout
@@ -24,7 +24,6 @@ jobs:
         fakeroot kmod cpio git python3-docutils gettext automake autopoint \
         texinfo build-essential help2man pkg-config zlib1g-dev libgmp3-dev \
         libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget libc-dev-bin
-
         sudo mkdir -p /mnt/opt
         sudo chown $USER:$USER /mnt/opt
 
@@ -33,10 +32,29 @@ jobs:
         mkdir -p /mnt/opt/rt-n56u
         sudo rm -rf /opt/rt-n56u
         ln -s /mnt/opt/rt-n56u /opt/rt-n56u
-
         git clone --depth=1 --single-branch https://github.com/yangliang235/Padavan-KVR-keke1023.git /opt/rt-n56u
         sed -i 's/192.168.2/192.168.6/g' /opt/rt-n56u/trunk/user/shared/defaults.h
         sed -i 's/ntp1.aliyun.com/time.pool.aliyun.com/g' /opt/rt-n56u/trunk/user/shared/defaults.h
+
+        ################################################################################################
+        # 固件版本号后缀：使用当前日期（3.4.3.9-9_YYYYMMDD）
+        # 如需“日期+时分”避免同日重名，把 "%Y%m%d" 改为 "%Y%m%d%H%M"
+        ################################################################################################
+        FW_DATE=$(date +"%Y%m%d")
+        sed -i "s/^FIRMWARE_BUILDS_REV=.*/FIRMWARE_BUILDS_REV=${FW_DATE}/" /opt/rt-n56u/trunk/versions.inc
+        echo "=== versions.inc (after) ==="
+        grep -n "FIRMWARE_BUILDS_REV" /opt/rt-n56u/trunk/versions.inc || true
+
+        ################################################################################################
+        # 隐藏一级菜单中的 VPN 服务器 / VPN 客户端（直接改 state.js）
+        ################################################################################################
+        STATE_JS="/opt/rt-n56u/trunk/user/www/n56u_ribbon_fixed/state.js"
+        echo "=== state.js before ==="
+        grep -n '^menuL1_title\|^menuL1_link' "$STATE_JS" || true
+        sed -i 's|^menuL1_title *= new Array.*|menuL1_title = new Array("", "<#menu1#>", "", "", "", "<#menu4#>", "<#menu5_8#>", "<#menu5#>");|' "$STATE_JS"
+        sed -i 's|^menuL1_link *= new Array.*|menuL1_link = new Array("", "index.asp", "", "", "", "Main_TrafficMonitor_realtime.asp", "Advanced_System_Info.asp", "as.asp");|' "$STATE_JS"
+        echo "=== state.js after ==="
+        grep -n '^menuL1_title\|^menuL1_link' "$STATE_JS" || true
 
         cd /opt/rt-n56u/toolchain-mipsel
         sh dl_toolchain.sh
@@ -45,7 +63,6 @@ jobs:
     - name: Build Firmware
       run: |
         echo "FILE_DATE=-$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
-
         ################################################################################################
         # 加载配置文件
         ################################################################################################
@@ -61,9 +78,7 @@ jobs:
         fi
         echo "Using config: $CONFIG_SRC"
         cp -vpf "$CONFIG_SRC" /opt/rt-n56u/trunk/.config
-
         cd /opt/rt-n56u/trunk
-
         ################################################################################################
         # 超频 1100MHz：兼容多种 PLL 值写法 (0xc2 / 0x2B2 / 0x2C2 -> 0x362)
         ################################################################################################
@@ -71,7 +86,6 @@ jobs:
         if [ -f "$INIT_C" ]; then
           echo "=== Lines 545-565 of $INIT_C (before) ==="
           sed -n '545,565p' "$INIT_C" || true
-
           # 兼容 fightroad 的 0xc2
           sed -i 's/!= 0xc2)/!= 0x362)/g' "$INIT_C"
           sed -i 's/(0xc2);/(0x362);/g' "$INIT_C"
@@ -82,17 +96,14 @@ jobs:
           # 兼容 0x2C2 (900MHz)
           sed -i 's/0x2C2/0x362/g' "$INIT_C"
           sed -i 's/0x2c2/0x362/g' "$INIT_C"
-
           echo "=== Lines 545-565 of $INIT_C (after) ==="
           sed -n '545,565p' "$INIT_C" || true
-
           echo "=== grep 0x362 in $INIT_C ==="
           grep -n "0x362" "$INIT_C" || echo "(WARNING: 0x362 not found, OC will fall back to .config only)"
         else
           echo "ERROR: $INIT_C not found."
           exit 1
         fi
-
         ################################################################################################
         # 修复 .config 超频开关
         ################################################################################################
@@ -100,7 +111,6 @@ jobs:
         sed -i '/CONFIG_FIRMWARE_MT7621_OC/d' .config
         echo "CONFIG_FIRMWARE_CPU_900MHZ=y" >> .config
         echo 'CONFIG_FIRMWARE_MT7621_OC="0x362"' >> .config
-
         ################################################################################################
         # e2fsprogs 兼容性修复（先打补丁，再 export 环境变量）
         ################################################################################################
@@ -112,7 +122,6 @@ jobs:
           grep -E "^CC=|^PTHREAD_CFLAGS=" "$E2FS_DIR/MCONFIG" || true
         fi
         export PTHREAD_CFLAGS="-pthread"
-
         ################################################################################################
         # 清理所有可选插件（"其它全部不要"）
         ################################################################################################
@@ -151,42 +160,33 @@ jobs:
           sed -i 's/CONFIG_FIRMWARE_INCLUDE_IPV6=n/CONFIG_FIRMWARE_INCLUDE_IPV6=y/g' .config
           sed -i 's/CONFIG_FIRMWARE_INCLUDE_HTTPS=n/CONFIG_FIRMWARE_INCLUDE_HTTPS=y/g' .config
         done
-
         ################################################################################################
         # 显式开启需要保留的功能
         ################################################################################################
         echo "CONFIG_RT_DOT11K_RRM=y" >> .config
         echo "CONFIG_RT_DOT11R_FT=y" >> .config
         echo "CONFIG_RT_DOT11V_WNM=y" >> .config
-
         echo "CONFIG_FIRMWARE_INCLUDE_SMARTDNS=y" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_SMARTDNSBIN=y" >> .config
-
         echo "CONFIG_FIRMWARE_INCLUDE_LANG_CN=y" >> .config
-
         echo "CONFIG_FIRMWARE_ENABLE_USB=y" >> .config
         echo "CONFIG_FIRMWARE_ENABLE_UFSD=y" >> .config
         echo "CONFIG_FIRMWARE_ENABLE_FAT=y" >> .config
         echo "CONFIG_FIRMWARE_ENABLE_EXT4=y" >> .config
-
         echo "CONFIG_FIRMWARE_INCLUDE_USBIP=y" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_LPRD=y" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_U2EC=y" >> .config
-
         echo "CONFIG_FIRMWARE_INCLUDE_HTTPS=y" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_OPENSSL_EC=y" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_OPENSSH=y" >> .config
-
         echo "CONFIG_FIRMWARE_INCLUDE_SHORTCUT_FE=y" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_FASTPATH_HWNAT=y" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_IPV6=y" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_HTTPS=y" >> .config
-
+        # 尝试隐藏 VPN 页面（此分支可能无效，state.js 已另行处理）
         echo "CONFIG_FIRMWARE_WEBUI_HIDE_VPN=y" >> .config
-
         echo "=== Final .config (relevant lines) ==="
-        grep -E "CPU_900|MT7621_OC|RT_DOT11|SMARTDNS|LANG_CN|USB|OPENSSH|HTTPS" .config || true
-
+        grep -E "CPU_900|MT7621_OC|WEBUI_HIDE_VPN|SHORTCUT_FE|FASTPATH_HWNAT|RT_DOT11|SMARTDNS|LANG_CN|USB|OPENSSH|HTTPS" .config || true
         ./clear_tree_simple
         fakeroot ./build_firmware_modify $TNAME 0
         mv -f images/*.trx /opt/images
