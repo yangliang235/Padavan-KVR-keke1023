@@ -99,7 +99,7 @@ jobs:
         # 超频
         INIT_C="linux-3.4.x/arch/mips/rt2880/init.c"
         if [ -f "$INIT_C" ]; then
-          sed -i 's/!= 0xc2)/!= 0x3B2)/g; s/(0xc2);/(0x0x3B2);/g; s/0xC2/0x0x3B2/g' "$INIT_C"
+          sed -i 's/!= 0xc2)/!= 0x3B2)/g; s/(0xc2);/(0x3B2);/g; s/0xC2/0x3B2/g' "$INIT_C"
           sed -i 's/0x2B2/0x3B2/g; s/0x2b2/0x3B2/g; s/0x2C2/0x3B2/g; s/0x2c2/0x3B2/g' "$INIT_C"
           grep -n "0x3B2" "$INIT_C" || echo "WARNING: 0x3B2 not found"
         else
