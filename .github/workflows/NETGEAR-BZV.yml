@@ -26,7 +26,6 @@ jobs:
         libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget libc-dev-bin
         sudo mkdir -p /mnt/opt
         sudo chown $USER:$USER /mnt/opt
-
     - name: Clone source code
       run: |
         mkdir -p /mnt/opt/rt-n56u
@@ -74,7 +73,6 @@ jobs:
         cd /opt/rt-n56u/toolchain-mipsel
         sh dl_toolchain.sh
         mkdir -p /opt/images/
-
     - name: Build Firmware
       run: |
         echo "FILE_DATE=-$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
@@ -90,9 +88,8 @@ jobs:
         echo "Using config: $CONFIG_SRC"
         cp -vpf "$CONFIG_SRC" /opt/rt-n56u/trunk/.config
         cd /opt/rt-n56u/trunk
-
         ################################################################################################
-       # 超频 1200MHz (0x3B2) - 直接替换源码中的 0x362
+        # 超频 1200MHz (0x3B2) - 直接替换源码中的 0x362
         ################################################################################################
         INIT_C="linux-3.4.x/arch/mips/rt2880/init.c"
         if [ -f "$INIT_C" ]; then
@@ -112,14 +109,13 @@ jobs:
         else
           echo "FATAL: $INIT_C not found."; exit 1
         fi
-
         ################################################################################################
-        # 修复 .config 超频开关（启用总开关 INCLUDE_OC，移除冲突的 900MHZ 选项）
+        # 修复 .config 超频开关
         ################################################################################################
-        sed -i '/CONFIG_FIRMWARE_CPU_900MHZ/d; /CONFIG_FIRMWARE_MT7621_OC/d; /CONFIG_FIRMWARE_INCLUDE_OC/d' .config
-        echo "CONFIG_FIRMWARE_INCLUDE_OC=y" >> .config
+        sed -i '/CONFIG_FIRMWARE_CPU_900MHZ/d' .config
+        sed -i '/CONFIG_FIRMWARE_MT7621_OC/d' .config
+        echo "CONFIG_FIRMWARE_CPU_900MHZ=y" >> .config
         echo 'CONFIG_FIRMWARE_MT7621_OC="0x3B2"' >> .config
-        
         # e2fsprogs 修复
         E2FS_DIR="user/e2fsprogs/e2fsprogs-1.46.5"
         if [ -f "$E2FS_DIR/MCONFIG" ]; then
@@ -127,7 +123,6 @@ jobs:
           sed -i 's|^PTHREAD_CFLAGS=.*|PTHREAD_CFLAGS = -pthread|' "$E2FS_DIR/MCONFIG" || true
         fi
         export PTHREAD_CFLAGS="-pthread"
-
         # 清理可选插件
         for opt in SHADOWSOCKS V2RAY TROJAN SSOBFS XRAY SRELAY ADBYBY KOOLPROXY ADGUARDHOME DNSFORWARDER ZEROTIER ALIDDNS DDNSTO MENTOHUST SCUTCLIENT GDUT_DRCOM DOGCOM MINIEAP NJIT_CLIENT TRANSMISSION TRANSMISSION_WEB_CONTROL ARIA ARIA_WEB_CONTROL MINIDLNA XUPNPD FIREFLY CADDY CADDYBIN WYY WYYBIN OPENVPN SSWAN SOFTETHERVPN_SERVER SOFTETHERVPN_CLIENT SOFTETHERVPN_CMD VLMCSD TTYD LRZSZ HTOP NANO IPERF3 MTR SOCAT SMBD SMBD36 WINS SMBD_SYSLOG FTPD LPRD U2EC EAP_PEAP SFTP TCPDUMP HDPARM PARTED CURL XFRM QOS IMQ IFB IPSET NFSD NFSC CIFS NAPT66 XFS FUSE SWAP HID AUDIO UVC SERIAL DROPBEAR DROPBEAR_FAST_CODE RPL2TP DUMP1090 RTL_SDR FRPC FRPS TUNSAFE; do
           sed -i "/CONFIG_FIRMWARE_INCLUDE_${opt}=/d; /CONFIG_FIRMWARE_ENABLE_${opt}=/d" .config
@@ -147,7 +142,6 @@ jobs:
           sed -i 's/CONFIG_FIRMWARE_INCLUDE_IPV6=n/CONFIG_FIRMWARE_INCLUDE_IPV6=y/g' .config
           sed -i 's/CONFIG_FIRMWARE_INCLUDE_HTTPS=n/CONFIG_FIRMWARE_INCLUDE_HTTPS=y/g' .config
         done
-
         # 显式开启功能
         echo "CONFIG_RT_DOT11K_RRM=y" >> .config
         echo "CONFIG_RT_DOT11R_FT=y" >> .config
@@ -170,12 +164,10 @@ jobs:
         echo "CONFIG_FIRMWARE_INCLUDE_IPV6=y" >> .config
         echo "CONFIG_FIRMWARE_INCLUDE_HTTPS=y" >> .config
         echo "CONFIG_FIRMWARE_WEBUI_HIDE_VPN=y" >> .config
-
         ./clear_tree_simple
         fakeroot ./build_firmware_modify $TNAME 0
         mv -f images/*.trx /opt/images
         cp -vpf .config /opt/images
-
     - name: Upload artifact
       uses: actions/upload-artifact@main
       with:
