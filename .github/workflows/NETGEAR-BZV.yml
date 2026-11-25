@@ -91,17 +91,35 @@ jobs:
         cp -vpf "$CONFIG_SRC" /opt/rt-n56u/trunk/.config
         cd /opt/rt-n56u/trunk
 
-        # 超频到 1200MHz：0x3B2
+        # 超频 1200MHz：兼容多种 PLL 值写法 (0xc2 / 0x2B2 / 0x2C2 -> 0x3B2)
+        ################################################################################################
         INIT_C="linux-3.4.x/arch/mips/rt2880/init.c"
         if [ -f "$INIT_C" ]; then
-          sed -i 's/!= 0xc2)/!= 0x3B2)/g; s/(0xc2);/(0x3B2);/g; s/0xC2/0x3B2/g' "$INIT_C"
-          sed -i 's/0x2B2/0x3B2/g; s/0x2b2/0x3B2/g; s/0x2C2/0x3B2/g; s/0x2c2/0x3B2/g' "$INIT_C"
-          grep -n "0x3B2" "$INIT_C" || echo "WARNING: 0x3B2 not found"
+          echo "=== Lines 545-565 of $INIT_C (before) ==="
+          sed -n '545,565p' "$INIT_C" || true
+          # 兼容 fightroad 的 0xc2
+          sed -i 's/!= 0xc2)/!= 0x3B2)/g' "$INIT_C"
+          sed -i 's/(0xc2);/(0x3B2);/g' "$INIT_C"
+          sed -i 's/0xC2/0x3B2/g' "$INIT_C"
+          # 兼容原版 0x2B2 (880MHz)
+          sed -i 's/0x2B2/0x3B2/g' "$INIT_C"
+          sed -i 's/0x2b2/0x3B2/g' "$INIT_C"
+          # 兼容 0x2C2 (900MHz)
+          sed -i 's/0x2C2/0x3B2/g' "$INIT_C"
+          sed -i 's/0x2c2/0x3B2/g' "$INIT_C"
+          echo "=== Lines 545-565 of $INIT_C (after) ==="
+          sed -n '545,565p' "$INIT_C" || true
+          echo "=== grep 0x3B2 in $INIT_C ==="
+          grep -n "0x3B2" "$INIT_C" || echo "(WARNING: 0x3B2 not found, OC will fall back to .config only)"
         else
-          echo "ERROR: $INIT_C not found."; exit 1
+          echo "ERROR: $INIT_C not found."
+          exit 1
         fi
-
-        sed -i '/CONFIG_FIRMWARE_CPU_900MHZ/d; /CONFIG_FIRMWARE_MT7621_OC/d' .config
+        ################################################################################################
+        # 修复 .config 超频开关
+        ################################################################################################
+        sed -i '/CONFIG_FIRMWARE_CPU_900MHZ/d' .config
+        sed -i '/CONFIG_FIRMWARE_MT7621_OC/d' .config
         echo "CONFIG_FIRMWARE_CPU_900MHZ=y" >> .config
         echo 'CONFIG_FIRMWARE_MT7621_OC="0x3B2"' >> .config
 
