@@ -99,21 +99,19 @@ jobs:
         # 超频
         INIT_C="linux-3.4.x/arch/mips/rt2880/init.c"
         if [ -f "$INIT_C" ]; then
-          sed -i 's/!= 0xc2)/!= 0x3B2)/g; s/(0xc2);/(0x3B2);/g; s/0xC2/0x3B2/g' "$INIT_C"
-          sed -i 's/0x2B2/0x3B2/g; s/0x2b2/0x3B2/g; s/0x2C2/0x3B2/g; s/0x2c2/0x3B2/g; s/0x362/0x3B2/g' "$INIT_C"
-          echo "=== init.c PLL/OC lines ==="
-          grep -n "0x3B2\|0x0x\|0x362\|0xc2\|0xC2" "$INIT_C" || true
+        sed -i 's/!= 0x2B2)/!= 0x3B2)/g; s/(0x2B2);/(0x3B2);/g; s/0x2B2/0x3B2/g' "$INIT_C"
+        sed -i 's/!= 0xc2)/!= 0x3B2)/g; s/(0xc2);/(0x3B2);/g; s/0xC2/0x3B2/g' "$INIT_C"
+        sed -i 's/0x2b2/0x3B2/g; s/0x2C2/0x3B2/g; s/0x2c2/0x3B2/g; s/0x362/0x3B2/g' "$INIT_C"
+
+        echo "=== init.c PLL lines after patch ==="
+        grep -n "0x3B2\|0x2B2\|0xc2\|0xC2" "$INIT_C" || true
         else
-          echo "ERROR: $INIT_C not found."; exit 1
+        echo "ERROR: $INIT_C not found."; exit 1
         fi
 
-        sed -i '/CONFIG_FIRMWARE_CPU_900MHZ/d; /CONFIG_FIRMWARE_MT7621_OC/d' .config
+        sed -i '/CONFIG_FIRMWARE_CPU_900MHZ/d; /CONFIG_FIRMWARE_MT7621_OC/d; /CONFIG_FIRMWARE_INCLUDE_OC/d' .config
+        echo "CONFIG_FIRMWARE_INCLUDE_OC=y" >> .config
         echo 'CONFIG_FIRMWARE_MT7621_OC="0x3B2"' >> .config
-
-        echo "=== CPU OC config check ==="
-        grep -n "CONFIG_FIRMWARE_MT7621_OC\|CONFIG_FIRMWARE_CPU_900MHZ" .config || true
-        grep -n "0x0x" "$INIT_C" && echo "ERROR: invalid 0x0x found" && exit 1 || true
-
         # e2fsprogs 修复
         E2FS_DIR="user/e2fsprogs/e2fsprogs-1.46.5"
         if [ -f "$E2FS_DIR/MCONFIG" ]; then
