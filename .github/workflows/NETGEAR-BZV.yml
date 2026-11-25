@@ -89,23 +89,23 @@ jobs:
         cp -vpf "$CONFIG_SRC" /opt/rt-n56u/trunk/.config
         cd /opt/rt-n56u/trunk
         ################################################################################################
-        # 超频 1200MHz (0x3B2) - 直接替换源码中的 0x362
+        # 超频 1100MHz (0x362) - 直接替换源码中的 0x362
         ################################################################################################
         INIT_C="linux-3.4.x/arch/mips/rt2880/init.c"
         if [ -f "$INIT_C" ]; then
           echo "=== init.c PLL lines BEFORE ==="
-          grep -n "0x3B2\|0x362\|0x2B2\|0xc2" "$INIT_C" || true
+          grep -n "0x362\|0x362\|0x2B2\|0xc2" "$INIT_C" || true
 
           # 核心：将源码中已有的 0x362 (1100MHz) 替换为 0x3B2 (1200MHz)
-          sed -i 's/0x362/0x3B2/g' "$INIT_C"
+          sed -i 's/0x362/0x362/g' "$INIT_C"
           # 同时保留对其他可能存在的旧值的兼容
-          sed -i 's/!= 0xc2)/!= 0x3B2)/g; s/(0xc2);/(0x3B2);/g; s/0xC2/0x3B2/g' "$INIT_C"
-          sed -i 's/0x2B2/0x3B2/g; s/0x2b2/0x3B2/g; s/0x2C2/0x3B2/g; s/0x2c2/0x3B2/g' "$INIT_C"
+          sed -i 's/!= 0xc2)/!= 0x362)/g; s/(0xc2);/(0x362);/g; s/0xC2/0x362/g' "$INIT_C"
+          sed -i 's/0x2B2/0x362/g; s/0x2b2/0x362/g; s/0x2C2/0x362/g; s/0x2c2/0x362/g' "$INIT_C"
 
           echo "=== init.c PLL lines AFTER ==="
-          grep -n "0x3B2\|0x362" "$INIT_C" || true
-          echo "=== Final check for 0x3B2 ==="
-          grep -q "0x3B2" "$INIT_C" && echo "SUCCESS: 0x3B2 found in init.c" || { echo "FATAL: 0x3B2 not found in init.c"; exit 1; }
+          grep -n "0x362\|0x362" "$INIT_C" || true
+          echo "=== Final check for 0x362 ==="
+          grep -q "0x362" "$INIT_C" && echo "SUCCESS: 0x362 found in init.c" || { echo "FATAL: 0x362 not found in init.c"; exit 1; }
         else
           echo "FATAL: $INIT_C not found."; exit 1
         fi
@@ -115,7 +115,7 @@ jobs:
         sed -i '/CONFIG_FIRMWARE_CPU_900MHZ/d' .config
         sed -i '/CONFIG_FIRMWARE_MT7621_OC/d' .config
         echo "CONFIG_FIRMWARE_CPU_900MHZ=y" >> .config
-        echo 'CONFIG_FIRMWARE_MT7621_OC="0x3B2"' >> .config
+        echo 'CONFIG_FIRMWARE_MT7621_OC="0x362"' >> .config
         # e2fsprogs 修复
         E2FS_DIR="user/e2fsprogs/e2fsprogs-1.46.5"
         if [ -f "$E2FS_DIR/MCONFIG" ]; then
