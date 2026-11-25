@@ -114,11 +114,10 @@ jobs:
         fi
 
         ################################################################################################
-        # 修复 .config 超频开关
+        # 修复 .config 超频开关（启用总开关 INCLUDE_OC，移除冲突的 900MHZ 选项）
         ################################################################################################
-        sed -i '/CONFIG_FIRMWARE_CPU_900MHZ/d' .config
-        sed -i '/CONFIG_FIRMWARE_MT7621_OC/d' .config
-        echo "CONFIG_FIRMWARE_CPU_900MHZ=y" >> .config
+        sed -i '/CONFIG_FIRMWARE_CPU_900MHZ/d; /CONFIG_FIRMWARE_MT7621_OC/d; /CONFIG_FIRMWARE_INCLUDE_OC/d' .config
+        echo "CONFIG_FIRMWARE_INCLUDE_OC=y" >> .config
         echo 'CONFIG_FIRMWARE_MT7621_OC="0x3B2"' >> .config
         
         # e2fsprogs 修复
