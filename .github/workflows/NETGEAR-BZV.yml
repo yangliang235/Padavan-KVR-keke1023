@@ -37,7 +37,6 @@ jobs:
         # 基础修改
         sed -i 's/192.168.2/192.168.6/g' /opt/rt-n56u/trunk/user/shared/defaults.h
         sed -i 's/ntp1.aliyun.com/time.pool.aliyun.com/g' /opt/rt-n56u/trunk/user/shared/defaults.h
-
         ################################################################################################
         # 1. 替换 Logo（假设你的 logo.png 在仓库根目录）
         ################################################################################################
@@ -47,14 +46,12 @@ jobs:
         else
           echo "WARNING: logo.png not found in repo root, skip logo replacement."
         fi
-
         ################################################################################################
         # 2. 修改固件版本号后缀（3.4.3.9-9_YYYYMMDD）
         ################################################################################################
         FW_DATE=$(date +"%Y%m%d")
         sed -i "s/^FIRMWARE_BUILDS_REV=.*/FIRMWARE_BUILDS_REV=${FW_DATE}/" /opt/rt-n56u/trunk/versions.inc
         grep -n "FIRMWARE_BUILDS_REV" /opt/rt-n56u/trunk/versions.inc || true
-
         ################################################################################################
         # 3. 隐藏一级菜单中的 VPN 服务器 / VPN 客户端（state.js）
         ################################################################################################
@@ -62,7 +59,6 @@ jobs:
         sed -i 's|^menuL1_title *= new Array.*|menuL1_title = new Array("", "<#menu1#>", "", "", "", "<#menu4#>", "<#menu5_8#>", "<#menu5#>");|' "$STATE_JS"
         sed -i 's|^menuL1_link *= new Array.*|menuL1_link = new Array("", "index.asp", "", "", "", "Main_TrafficMonitor_realtime.asp", "Advanced_System_Info.asp", "as.asp");|' "$STATE_JS"
         grep -n '^menuL1_title\|^menuL1_link' "$STATE_JS" || true
-
         ################################################################################################
         # 4. 尝试在 Advanced_WAN_Content.asp 中启用 SFE 选项
         # 此分支可能已移除该界面选项，以下 sed 命令为通用尝试，若无效需手动检查源码
@@ -75,7 +71,6 @@ jobs:
           echo "=== SFE related lines in Advanced_WAN_Content.asp ==="
           grep -i -n "shortcut\|sfe" "$WAN_ASP" || echo "No SFE/shortcut found in ASP file."
         fi
-
         cd /opt/rt-n56u/toolchain-mipsel
         sh dl_toolchain.sh
         mkdir -p /opt/images/
@@ -96,22 +91,20 @@ jobs:
         cp -vpf "$CONFIG_SRC" /opt/rt-n56u/trunk/.config
         cd /opt/rt-n56u/trunk
 
-        # 超频
+        # 超频到 1200MHz：0x3B2
         INIT_C="linux-3.4.x/arch/mips/rt2880/init.c"
         if [ -f "$INIT_C" ]; then
-        sed -i 's/!= 0x2B2)/!= 0x3B2)/g; s/(0x2B2);/(0x3B2);/g; s/0x2B2/0x3B2/g' "$INIT_C"
-        sed -i 's/!= 0xc2)/!= 0x3B2)/g; s/(0xc2);/(0x3B2);/g; s/0xC2/0x3B2/g' "$INIT_C"
-        sed -i 's/0x2b2/0x3B2/g; s/0x2C2/0x3B2/g; s/0x2c2/0x3B2/g; s/0x362/0x3B2/g' "$INIT_C"
-
-        echo "=== init.c PLL lines after patch ==="
-        grep -n "0x3B2\|0x2B2\|0xc2\|0xC2" "$INIT_C" || true
+          sed -i 's/!= 0xc2)/!= 0x3B2)/g; s/(0xc2);/(0x3B2);/g; s/0xC2/0x3B2/g' "$INIT_C"
+          sed -i 's/0x2B2/0x3B2/g; s/0x2b2/0x3B2/g; s/0x2C2/0x3B2/g; s/0x2c2/0x3B2/g' "$INIT_C"
+          grep -n "0x3B2" "$INIT_C" || echo "WARNING: 0x3B2 not found"
         else
-        echo "ERROR: $INIT_C not found."; exit 1
+          echo "ERROR: $INIT_C not found."; exit 1
         fi
 
-        sed -i '/CONFIG_FIRMWARE_CPU_900MHZ/d; /CONFIG_FIRMWARE_MT7621_OC/d; /CONFIG_FIRMWARE_INCLUDE_OC/d' .config
-        echo "CONFIG_FIRMWARE_INCLUDE_OC=y" >> .config
+        sed -i '/CONFIG_FIRMWARE_CPU_900MHZ/d; /CONFIG_FIRMWARE_MT7621_OC/d' .config
+        echo "CONFIG_FIRMWARE_CPU_900MHZ=y" >> .config
         echo 'CONFIG_FIRMWARE_MT7621_OC="0x3B2"' >> .config
+
         # e2fsprogs 修复
         E2FS_DIR="user/e2fsprogs/e2fsprogs-1.46.5"
         if [ -f "$E2FS_DIR/MCONFIG" ]; then
